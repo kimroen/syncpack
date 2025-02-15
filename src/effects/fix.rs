@@ -9,93 +9,68 @@ use {
 };
 
 /// Run the fix command side effects
-pub fn run(ctx: Context) -> Context {
+pub fn run(ctx: Context) -> ! {
   let ui = Ui { ctx: &ctx };
-  let running_multiple_commands = ctx.config.cli.inspect_mismatches && ctx.config.cli.inspect_formatting;
 
-  if ctx.config.cli.inspect_mismatches {
-    if running_multiple_commands {
-      ui.print_command_header("SEMVER RANGES AND VERSION MISMATCHES");
+  let mut valid = 0;
+  let mut fixable = 0;
+  let mut unfixable = 0;
+  let mut suspect = 0;
+
+  ctx.instances.iter().for_each(|instance| {
+    let internal_name = &instance.descriptor.internal_name;
+
+    if !instance.descriptor.matches_cli_filter {
+      return;
     }
-    let mut valid = 0;
-    let mut fixable = 0;
-    let mut unfixable = 0;
-    let mut suspect = 0;
 
-    ctx.instances.iter().for_each(|instance| {
-      let internal_name = &instance.descriptor.internal_name;
+    let location = ui.instance_location(instance).dimmed();
+    let state = instance.state.borrow().clone();
+    let state_name = state.get_name();
+    let state_link = ui.get_instance_state_link(&state_name);
+    let state_link = format!("({state_link})").dimmed();
 
-      if !instance.descriptor.matches_cli_filter {
-        return;
+    match state {
+      InstanceState::Unknown => {}
+      InstanceState::Valid(_) => {
+        valid += 1;
       }
-
-      let location = ui.instance_location(instance).dimmed();
-      let state = instance.state.borrow().clone();
-      let state_name = state.get_name();
-      let state_link = ui.instance_status_code_link(&state_name);
-      let state_link = format!("({state_link})").dimmed();
-
-      match state {
-        InstanceState::Unknown => {}
-        InstanceState::Valid(_) => {
-          valid += 1;
-        }
-        InstanceState::Invalid(variant) => match variant {
-          InvalidInstance::Fixable(variant) => {
-            fixable += 1;
-            match variant {
-              FixableInstance::IsBanned => instance.remove(),
-              _ => {
-                let actual = instance.descriptor.specifier.get_raw().red();
-                let arrow = ui.dim_right_arrow();
-                let expected = instance.expected_specifier.borrow().as_ref().unwrap().get_raw().green();
-                info!("{internal_name} {actual} {arrow} {expected} {location} {state_link}");
-                instance.descriptor.package.borrow().copy_expected_specifier(instance);
-              }
+      InstanceState::Invalid(variant) => match variant {
+        InvalidInstance::Fixable(variant) => {
+          fixable += 1;
+          match variant {
+            FixableInstance::IsBanned => instance.remove(),
+            _ => {
+              let actual = instance.descriptor.specifier.get_raw().red();
+              let arrow = ui.dim_right_arrow();
+              let expected = instance.expected_specifier.borrow().as_ref().unwrap().get_raw().green();
+              info!("{internal_name} {actual} {arrow} {expected} {location} {state_link}");
+              instance.descriptor.package.borrow().copy_expected_specifier(instance);
             }
           }
-          InvalidInstance::Conflict(_) | InvalidInstance::Unfixable(_) => {
-            unfixable += 1;
-            warn!("Unfixable: {internal_name} {location} {state_link}");
-          }
-        },
-        InstanceState::Suspect(variant) => match variant {
-          SuspectInstance::RefuseToBanLocal
-          | SuspectInstance::DependsOnMissingSnapTarget
-          | SuspectInstance::RefuseToPinLocal
-          | SuspectInstance::RefuseToSnapLocal
-          | SuspectInstance::InvalidLocalVersion => {
-            suspect += 1;
-            warn!("Suspect: {internal_name} {location} {state_link}");
-          }
-        },
-      }
-    });
-
-    info!("{} {} Already Valid", ui.count_column(valid), ui.ok_icon());
-    info!("{} {} Fixed", ui.count_column(fixable), ui.ok_icon());
-    info!("{} {} Unfixable", ui.count_column(unfixable), ui.err_icon());
-    info!("{} {} Suspect", ui.count_column(suspect), ui.warn_icon());
-  }
-
-  if ctx.config.cli.inspect_formatting {
-    if running_multiple_commands {
-      ui.print_command_header("PACKAGE FORMATTING");
-    }
-    ctx.packages.all.iter().for_each(|package| {
-      let package = package.borrow();
-      let mut formatting_mismatches = package.formatting_mismatches.borrow_mut();
-      formatting_mismatches.iter().for_each(|mismatch| {
-        if mismatch.property_path == "/" {
-          *package.contents.borrow_mut() = mismatch.expected.clone();
-        } else if let Some(value) = package.contents.borrow_mut().pointer_mut(&mismatch.property_path) {
-          *value = mismatch.expected.clone();
         }
-      });
-      *formatting_mismatches = vec![];
-    });
-    ui.print_formatted_packages(&ctx.packages.all);
-  }
+        InvalidInstance::Conflict(_) | InvalidInstance::Unfixable(_) => {
+          unfixable += 1;
+          warn!("Unfixable: {internal_name} {location} {state_link}");
+        }
+      },
+      InstanceState::Suspect(variant) => match variant {
+        SuspectInstance::RefuseToBanLocal
+        | SuspectInstance::DependsOnMissingSnapTarget
+        | SuspectInstance::RefuseToPinLocal
+        | SuspectInstance::RefuseToSnapLocal
+        | SuspectInstance::InvalidLocalVersion => {
+          suspect += 1;
+          warn!("Suspect: {internal_name} {location} {state_link}");
+        }
+      },
+    }
+  });
+
+  info!("{} {} Already Valid", ui.count_column(valid), ui.ok_icon());
+  info!("{} {} Fixed", ui.count_column(fixable), ui.ok_icon());
+  info!("{} {} Unfixable", ui.count_column(unfixable), ui.err_icon());
+  info!("{} {} Suspect", ui.count_column(suspect), ui.warn_icon());
 
   if !ctx.config.cli.dry_run {
     ctx.packages.all.iter().for_each(|package| {
@@ -103,5 +78,22 @@ pub fn run(ctx: Context) -> Context {
     });
   }
 
-  ctx
+  for instance in ctx.instances.iter() {
+    match instance.state.borrow().clone() {
+      InstanceState::Valid(_) => continue,
+      InstanceState::Suspect(_) => {
+        if ctx.config.rcfile.strict {
+          std::process::exit(1);
+        } else {
+          continue;
+        }
+      }
+      InstanceState::Invalid(InvalidInstance::Fixable(_)) => {
+        continue;
+      }
+      _ => std::process::exit(1),
+    }
+  }
+
+  std::process::exit(0);
 }

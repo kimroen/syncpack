@@ -1,5 +1,6 @@
 use {
   crate::{
+    context::Context,
     instance::Instance,
     instance_state::InstanceState,
     package_json::PackageJson,
@@ -7,7 +8,7 @@ use {
     version_group::VersionGroupVariant,
   },
   itertools::Itertools,
-  std::{cell::RefCell, cmp::Ordering, rc::Rc, vec},
+  std::{cell::RefCell, cmp::Ordering, collections::HashMap, rc::Rc, vec},
 };
 
 #[derive(Debug)]
@@ -117,6 +118,16 @@ impl Dependency {
     }
   }
 
+  pub fn get_unique_specifiers(&self) -> Vec<Specifier> {
+    let mut unique_specifiers = Vec::new();
+    for instance in self.instances.borrow().iter() {
+      if !unique_specifiers.contains(&instance.descriptor.specifier) {
+        unique_specifiers.push(instance.descriptor.specifier.clone());
+      }
+    }
+    unique_specifiers
+  }
+
   /// Get the highest (or lowest) semver specifier in this group.
   pub fn get_highest_or_lowest_specifier(&self) -> Option<Specifier> {
     let prefer_highest = matches!(self.variant, VersionGroupVariant::HighestSemver);
@@ -137,6 +148,34 @@ impl Dependency {
           }
         }
       })
+  }
+
+  /// Given a list of every available update, returns a map of each chosen
+  /// update and the current specifiers which are affected by that update.
+  ///
+  /// When updating to the latest version, all of the current specifiers will be
+  /// assigned to the same/latest version.
+  ///
+  /// When only applying eg. patch updates, some specifiers will be assigned to
+  /// different updates if they are not on the same minor version.
+  pub fn get_eligible_registry_updates(&self, ctx: &Context) -> Option<HashMap<Specifier, Vec<Specifier>>> {
+    ctx.updates_by_internal_name.get(&self.internal_name).map(|updates| {
+      let mut specifiers_by_eligible_update: HashMap<Specifier, Vec<Specifier>> = HashMap::new();
+      self.get_unique_specifiers().iter().for_each(|installed| {
+        let newer_updates = updates
+          .iter()
+          .filter(|update| update.is_eligible_update_for(installed, &ctx.config.cli.target))
+          // @TODO: make whether to do this configurable
+          .filter(|update| installed.has_same_release_channel_as(update))
+          .collect::<Vec<_>>();
+        if !newer_updates.is_empty() {
+          let highest_update = newer_updates.last().unwrap();
+          let affected = specifiers_by_eligible_update.entry((*highest_update).clone()).or_default();
+          affected.push(installed.clone());
+        }
+      });
+      specifiers_by_eligible_update
+    })
   }
 
   /// Return the first instance from the packages which should be snapped to for

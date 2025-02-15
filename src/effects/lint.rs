@@ -1,20 +1,16 @@
 use crate::{context::Context, effects::ui::Ui, instance_state::InstanceState, version_group::VersionGroupVariant};
 
 /// Run the lint command side effects
-pub fn run(ctx: Context) -> Context {
+pub fn run(ctx: Context) -> ! {
   let ui = Ui { ctx: &ctx };
-  let running_multiple_commands = ctx.config.cli.inspect_mismatches && ctx.config.cli.inspect_formatting;
 
-  if ctx.config.cli.inspect_mismatches {
-    if running_multiple_commands {
-      ui.print_command_header("SEMVER RANGES AND VERSION MISMATCHES");
-    }
-    ctx.version_groups.iter().for_each(|group| {
-      if !group.matches_cli_filter {
-        return;
-      }
+  ctx
+    .version_groups
+    .iter()
+    .filter(|group| group.matches_cli_filter)
+    .for_each(|group| {
       ui.print_group_header(group);
-      if group.dependencies.borrow().len() == 0 {
+      if group.dependencies.borrow().is_empty() {
         ui.print_empty_group();
         return;
       }
@@ -37,15 +33,20 @@ pub fn run(ctx: Context) -> Context {
         });
       });
     });
-  }
-  if ctx.config.cli.inspect_formatting {
-    if running_multiple_commands {
-      ui.print_command_header("PACKAGE FORMATTING");
+
+  for instance in ctx.instances.iter() {
+    match instance.state.borrow().clone() {
+      InstanceState::Valid(_) => continue,
+      InstanceState::Suspect(_) => {
+        if ctx.config.rcfile.strict {
+          std::process::exit(1);
+        } else {
+          continue;
+        }
+      }
+      _ => std::process::exit(1),
     }
-    ui.print_formatted_packages(&ctx.get_formatted_packages());
-    ctx.get_formatting_mismatches_by_variant().iter().for_each(|(variant, mismatches)| {
-      ui.print_formatting_mismatches(variant, mismatches);
-    });
   }
-  ctx
+
+  std::process::exit(0);
 }

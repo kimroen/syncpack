@@ -196,6 +196,30 @@ impl VersionGroup {
       }
     }
   }
+
+  /// Get the names for every dependency that we're able to update from the npm
+  /// registry. Examples of dependencies we can't update are those inside banned
+  /// or ignored version groups, ones that are pinned to a specific version.
+  pub fn get_internal_names_of_updateable_dependencies(&self) -> Option<Vec<String>> {
+    match self.variant {
+      VersionGroupVariant::HighestSemver => {
+        let names: Vec<String> = self
+          .dependencies
+          .borrow()
+          .values()
+          .filter(|dep| dep.matches_cli_filter && !dep.has_local_instance())
+          .map(|dep| dep.internal_name.clone())
+          .collect();
+
+        if names.is_empty() {
+          None
+        } else {
+          Some(names)
+        }
+      }
+      _ => None,
+    }
+  }
 }
 
 #[derive(Debug, Deserialize)]
