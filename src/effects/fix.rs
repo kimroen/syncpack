@@ -1,7 +1,7 @@
 use {
   crate::{
     context::Context, 
-    effects::ui::{self, icon, instance},
+    effects::ui::{self, icon, instance, util},
     instance_state::InstanceState
   },
   colored::*,
@@ -40,7 +40,7 @@ pub fn run(ctx: Context) -> ! {
               let alias_hint = ui::dependency::get_alias_hint(dependency);
               let state = dependency.get_state();
               let icon = get_instance_state_icon(&state);
-              let line = ui::join_line(vec![&icon, &dependency.internal_name, &alias_hint]);
+              let line = util::join_line(vec![&icon, &dependency.internal_name, &alias_hint]);
               info!("{line}");
               has_shown_dependency_header = true;
             }
