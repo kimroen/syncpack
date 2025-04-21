@@ -1,9 +1,5 @@
 use {
-  crate::{
-    context::Context,
-    effects::ui,
-    version_group::VersionGroup,
-  },
+  crate::{context::Context, effects::ui, version_group::VersionGroup},
   colored::*,
   log::{info, warn},
 };

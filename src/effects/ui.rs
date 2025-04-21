@@ -1,4 +1,3 @@
-
 /// Indent level used across UI formatting
 const DEFAULT_INDENT: usize = 4;
 

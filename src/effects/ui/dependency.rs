@@ -3,9 +3,7 @@ use {
     context::Context,
     dependency::Dependency,
     effects::ui,
-    instance_state::{
-      InstanceState, ValidInstance,
-    },
+    instance_state::{InstanceState, ValidInstance},
     version_group::VersionGroupVariant,
   },
   colored::*,
