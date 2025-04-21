@@ -9,7 +9,7 @@ use {
 
 /// Run the update command side effects
 pub fn run(ctx: Context) -> ! {
-  let ui = Ui { ctx: &ctx };
+  let ui = Ui::new(&ctx);
   let mut is_invalid = false;
 
   ctx
@@ -18,9 +18,9 @@ pub fn run(ctx: Context) -> ! {
     .filter(|group| group.matches_cli_filter && matches!(group.variant, VersionGroupVariant::HighestSemver))
     .for_each(|group| {
       ui.print_group_header(group);
-      group.dependencies.borrow().values().for_each(|dependency| {
+      group.dependencies.values().for_each(|dependency| {
         let mut has_printed_header = false;
-        dependency.instances.borrow().iter().for_each(|instance| {
+        dependency.instances.iter().for_each(|instance| {
           let state = instance.state.borrow().clone();
           if let InstanceState::Invalid(InvalidInstance::Fixable(FixableInstance::DiffersToNpmRegistry)) = state {
             is_invalid = true;

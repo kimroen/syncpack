@@ -1,5 +1,5 @@
 use {
-  crate::{cli::SortBy, context::Context, version_group::VersionGroupVariant},
+  crate::{context::Context, version_group::VersionGroupVariant},
   itertools::Itertools,
   std::cmp::Ordering,
 };
@@ -21,7 +21,7 @@ fn init() {
 
 pub fn visit_packages(ctx: Context) -> Context {
   ctx.version_groups.iter().sorted_by(order_snapped_to_groups_last).for_each(|group| {
-    group.for_each_dependency(&SortBy::Name, |dependency| match dependency.variant {
+    group.dependencies.values().for_each(|dependency| match dependency.variant {
       VersionGroupVariant::Banned => banned::visit(dependency),
       VersionGroupVariant::HighestSemver | VersionGroupVariant::LowestSemver => preferred_semver::visit(dependency, &ctx),
       VersionGroupVariant::Ignored => ignored::visit(dependency),

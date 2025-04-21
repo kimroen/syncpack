@@ -18,9 +18,14 @@ use {
 #[derive(Debug)]
 pub struct Ui<'a> {
   pub ctx: &'a Context,
+  indent: usize,
 }
 
-impl Ui<'_> {
+impl<'a> Ui<'a> {
+  pub fn new(ctx: &'a Context) -> Self {
+    Self { ctx, indent: 4 }
+  }
+
   pub fn print_group_header(&self, group: &VersionGroup) {
     let print_width = 80;
     let label = &group.selector.label;
@@ -39,17 +44,16 @@ impl Ui<'_> {
   }
 
   pub fn print_ignored_dependency(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
-    let instances_len = dependency.instances.borrow().len();
+    let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name.dimmed().to_string();
     let local_hint = self.get_local_dependency_hint(dependency);
-    let state_links = self.get_dependency_state_links(dependency, group_variant);
-    let line = self.join_line(vec![&count, &name, &state_links]);
+    let line = self.join_line(vec![&count, &name]);
     info!("{line}");
   }
 
   pub fn print_valid_dependency(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
-    let instances_len = dependency.instances.borrow().len();
+    let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name;
     let local_hint = self.get_local_dependency_hint(dependency);
@@ -59,8 +63,16 @@ impl Ui<'_> {
     info!("{line}");
   }
 
+  pub fn get_alias_hint(&self, dependency: &Dependency) -> String {
+    if dependency.has_alias {
+      "[alias]".magenta().to_string()
+    } else {
+      "".to_string()
+    }
+  }
+
   pub fn print_dependency(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
-    let instances_len = dependency.instances.borrow().len();
+    let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name;
     let local_hint = self.get_local_dependency_hint(dependency);
@@ -105,13 +117,14 @@ impl Ui<'_> {
 
   fn get_local_dependency_hint(&self, dependency: &Dependency) -> String {
     if self.ctx.config.cli.show_hints && dependency.local_instance.borrow().is_some() {
-      "(local)".blue().to_string()
+      "[local]".blue().to_string()
     } else {
       "".to_string()
     }
   }
 
-  fn get_instance_state_name(&self, state: &InstanceState, group_variant: &VersionGroupVariant) -> String {
+  fn get_instance_state_name(&self, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
+    let state = instance.state.borrow().clone();
     let state_name = state.get_name();
     // Issues related to whether a specifier is the highest or lowest semver are
     // all the same logic internally, so we have combined enum branches for
@@ -126,41 +139,17 @@ impl Ui<'_> {
     }
   }
 
-  fn get_dependency_state_links(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) -> String {
-    let state_links = dependency
-      .get_states()
-      .iter()
-      .map(|state| self.get_instance_state_name(state, group_variant))
-      .sorted()
-      .unique()
-      .map(|state_name| self.get_instance_state_link(&state_name))
-      .filter(|state_link| !state_link.is_empty())
-      .join(", ");
-    if !state_links.is_empty() {
-      format!("({state_links})").dimmed().to_string()
-    } else {
-      "".to_string()
-    }
-  }
-
   pub fn print_instance(&self, instance: &Instance, group_variant: &VersionGroupVariant) {
     let state = instance.state.borrow().clone();
-    let state_name = self.get_instance_state_name(&state, group_variant);
-    let state_link = self.get_instance_state_link_in_parens(&state_name);
-    let actual = instance.descriptor.specifier.get_raw();
-    let actual = if actual.is_empty() {
-      "VERSION_IS_MISSING".yellow().to_string()
-    } else {
-      actual
-    };
-    let location = self.instance_location(instance).dimmed();
-    let indent = "      ";
+    let indent = " ".repeat(self.indent);
     match &state {
       InstanceState::Valid(variant) => match variant {
         ValidInstance::IsIgnored => {
-          let icon = self.unknown_icon();
-          let actual = actual.dimmed();
-          info!("{indent}{icon} {actual} {location} {state_link}");
+          let no_icon = " ";
+          let actual = self.get_actual(instance).dimmed();
+          let location = self.instance_location(instance).dimmed();
+          let state_link = self.get_instance_state_link_in_parens(instance, group_variant);
+          info!("{indent}{no_icon} {actual} {location} {state_link}");
         }
         ValidInstance::IsHighestOrLowestSemver
         | ValidInstance::IsIdenticalToLocal
@@ -172,21 +161,15 @@ impl Ui<'_> {
         | ValidInstance::SatisfiesLocal
         | ValidInstance::SatisfiesSameRangeGroup
         | ValidInstance::SatisfiesSnapTarget => {
-          let icon = self.ok_icon().dimmed();
-          let actual = actual.green();
-          info!("{indent}{icon} {actual} {location} {state_link}");
+          let no_icon = " ";
+          let actual = self.get_actual(instance).dimmed();
+          let location = self.instance_location(instance).dimmed();
+          let state_link = self.get_instance_state_link_in_parens(instance, group_variant);
+          info!("{indent}{no_icon} {actual} {location} {state_link}");
         }
       },
       InstanceState::Invalid(variant) => match variant {
-        InvalidInstance::Fixable(FixableInstance::IsBanned)
-        | InvalidInstance::Fixable(FixableInstance::DiffersToHighestOrLowestSemver)
-        | InvalidInstance::Fixable(FixableInstance::DiffersToLocal)
-        | InvalidInstance::Fixable(FixableInstance::DiffersToNpmRegistry)
-        | InvalidInstance::Fixable(FixableInstance::DiffersToPin)
-        | InvalidInstance::Fixable(FixableInstance::DiffersToSnapTarget)
-        | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRange)
-        | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRangeMismatch)
-        | InvalidInstance::Unfixable(UnfixableInstance::DependsOnInvalidLocalPackage)
+        InvalidInstance::Unfixable(UnfixableInstance::DependsOnInvalidLocalPackage)
         | InvalidInstance::Unfixable(UnfixableInstance::NonSemverMismatch)
         | InvalidInstance::Unfixable(UnfixableInstance::SameRangeMismatch)
         | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MatchConflictsWithHighestOrLowestSemver)
@@ -195,11 +178,21 @@ impl Ui<'_> {
         | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithHighestOrLowestSemver)
         | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithLocal)
         | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithSnapTarget) => {
-          let icon = self.err_icon().dimmed();
-          let actual = actual.red();
+          let icon = self.err_icon();
+          let actual = self.get_actual(instance).red();
+          let location = self.instance_location(instance).dimmed();
+          let state_link = self.get_instance_state_link_in_parens(instance, group_variant);
           info!("{indent}{icon} {actual} {location} {state_link}");
         }
-        InvalidInstance::Fixable(FixableInstance::SemverRangeMismatch) => {
+        InvalidInstance::Fixable(FixableInstance::DiffersToHighestOrLowestSemver)
+        | InvalidInstance::Fixable(FixableInstance::DiffersToLocal)
+        | InvalidInstance::Fixable(FixableInstance::DiffersToNpmRegistry)
+        | InvalidInstance::Fixable(FixableInstance::DiffersToPin)
+        | InvalidInstance::Fixable(FixableInstance::DiffersToSnapTarget)
+        | InvalidInstance::Fixable(FixableInstance::IsBanned)
+        | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRange)
+        | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRangeMismatch)
+        | InvalidInstance::Fixable(FixableInstance::SemverRangeMismatch) => {
           self.print_fixable_instance(instance, group_variant);
         }
       },
@@ -210,29 +203,47 @@ impl Ui<'_> {
         | SuspectInstance::RefuseToPinLocal
         | SuspectInstance::RefuseToSnapLocal => {
           let icon = self.warn_icon();
+          let actual = self.get_actual(instance).yellow();
+          let location = self.instance_location(instance).dimmed();
+          let state_link = self.get_instance_state_link_in_parens(instance, group_variant);
           info!("{indent}{icon} {actual} {location} {state_link}");
         }
       },
       InstanceState::Unknown => {
+        let location = self.instance_location(instance);
         error!("Instance '{location}' has an unknown state, this is a bug in syncpack");
         panic!("Unknown Instance State");
       }
     }
   }
 
-  pub fn print_fixable_instance(&self, instance: &Instance, group_variant: &VersionGroupVariant) {
-    let indent = "      ";
-    let icon = self.err_icon().dimmed();
+  pub fn get_actual(&self, instance: &Instance) -> String {
     let actual = instance.descriptor.specifier.get_raw();
-    let actual = actual.red();
+    if actual.is_empty() {
+      "VERSION_IS_MISSING".yellow().to_string()
+    } else {
+      actual
+    }
+  }
+
+  pub fn get_expected(&self, instance: &Instance) -> String {
+    instance.expected_specifier.borrow().as_ref().unwrap().get_raw()
+  }
+
+  pub fn get_suggested_fix(&self, instance: &Instance) -> String {
+    let actual = self.get_actual(instance).red();
     let arrow = self.dim_right_arrow();
-    let expected = instance.expected_specifier.borrow().as_ref().unwrap().get_raw();
-    let expected = expected.green();
+    let expected = self.get_expected(instance).green();
+    format!("{actual} {arrow} {expected}")
+  }
+
+  pub fn print_fixable_instance(&self, instance: &Instance, group_variant: &VersionGroupVariant) {
+    let indent = " ".repeat(self.indent);
+    let icon = self.err_icon();
+    let suggested_fix = self.get_suggested_fix(instance);
     let location = self.instance_location(instance).dimmed();
-    let state = instance.state.borrow().clone();
-    let state_name = self.get_instance_state_name(&state, group_variant);
-    let state_link = self.get_instance_state_link_in_parens(&state_name);
-    info!("{indent}{icon} {actual} {arrow} {expected} {location} {state_link}");
+    let state_link = self.get_instance_state_link_in_parens(instance, group_variant);
+    info!("{indent}{icon} {suggested_fix} {location} {state_link}");
   }
 
   pub fn ok_icon(&self) -> ColoredString {
@@ -258,7 +269,18 @@ impl Ui<'_> {
   /// Return a right-aligned column of a count of instances
   /// Example "    38x"
   pub fn count_column(&self, count: usize) -> String {
-    format!("{: >6}x", count).dimmed().to_string()
+    match self.indent {
+      0 => format!("{: >0}x", count),
+      1 => format!("{: >1}x", count),
+      2 => format!("{: >2}x", count),
+      3 => format!("{: >3}x", count),
+      4 => format!("{: >4}x", count),
+      5 => format!("{: >5}x", count),
+      6 => format!("{: >6}x", count),
+      _ => format!("{: >7}x", count),
+    }
+    .dimmed()
+    .to_string()
   }
 
   /// Return a location hint for an instance
@@ -273,18 +295,21 @@ impl Ui<'_> {
   }
 
   pub fn print_ignored_group(&self, group: &VersionGroup) {
-    let dependencies_count = group.dependencies.borrow().len();
-    let count = self.count_column(dependencies_count);
-    let message = "Ignored Dependencies".dimmed();
-    info!("{count} {message}");
-    let instances_count = group
-      .dependencies
-      .borrow()
-      .values()
-      .fold(0, |acc, dep| acc + dep.instances.borrow().len());
-    let count = self.count_column(instances_count);
-    let message = "Ignored Instances".dimmed();
-    info!("{count} {message}");
+    let instances_count = group.dependencies.values().fold(0, |acc, dep| {
+      acc
+        + dep
+          .instances
+          .iter()
+          .filter(|instance| instance.descriptor.matches_cli_filter)
+          .collect::<Vec<_>>()
+          .len()
+    });
+    let instance_plurality = if instances_count == 1 { "instance" } else { "instances" };
+    let instances_count = self.count_column(instances_count);
+    let dependencies_count = group.dependencies.len();
+    let dep_plurality = if dependencies_count == 1 { "dependency" } else { "dependencies" };
+    let line = format!("{instances_count} {instance_plurality} ignored inside {dependencies_count} {dep_plurality}").dimmed();
+    info!("{line}");
   }
 
   /// Packages which are correctly formatted
@@ -343,16 +368,17 @@ impl Ui<'_> {
   }
 
   /// If enabled, render the reason code as a clickable link
-  pub fn get_instance_state_link(&self, pascal_case: &str) -> String {
+  pub fn get_instance_state_link(&self, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
     if self.ctx.config.cli.show_status_codes {
-      self.status_code_link(pascal_case)
+      let state_name = self.get_instance_state_name(instance, group_variant);
+      self.status_code_link(&state_name)
     } else {
       "".to_string()
     }
   }
 
-  pub fn get_instance_state_link_in_parens(&self, state_name: &str) -> String {
-    let state_link = self.get_instance_state_link(state_name);
+  pub fn get_instance_state_link_in_parens(&self, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
+    let state_link = self.get_instance_state_link(instance, group_variant);
     if !state_link.is_empty() {
       format!("({state_link})").dimmed().to_string()
     } else {

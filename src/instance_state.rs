@@ -50,6 +50,34 @@ impl InstanceState {
       InstanceState::Suspect(_) => 3,
     }
   }
+
+  pub fn is_valid(&self) -> bool {
+    matches!(self, InstanceState::Valid(_))
+  }
+
+  pub fn is_invalid(&self) -> bool {
+    matches!(self, InstanceState::Invalid(_))
+  }
+
+  pub fn is_suspect(&self) -> bool {
+    matches!(self, InstanceState::Suspect(_))
+  }
+
+  pub fn is_fixable(&self) -> bool {
+    matches!(self, InstanceState::Invalid(InvalidInstance::Fixable(_)))
+  }
+
+  pub fn is_banned(&self) -> bool {
+    matches!(self, InstanceState::Invalid(InvalidInstance::Fixable(FixableInstance::IsBanned)))
+  }
+
+  pub fn is_conflict(&self) -> bool {
+    matches!(self, InstanceState::Invalid(InvalidInstance::Conflict(_)))
+  }
+
+  pub fn is_unfixable(&self) -> bool {
+    matches!(self, InstanceState::Invalid(InvalidInstance::Unfixable(_)))
+  }
 }
 
 impl PartialEq for InstanceState {

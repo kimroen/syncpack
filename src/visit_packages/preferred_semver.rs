@@ -18,7 +18,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
   debug!("{L1}visit dependency '{}'", dependency.internal_name);
   if dependency.has_local_instance_with_invalid_specifier() {
     debug!("{L2}it has an invalid local instance");
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       let actual_specifier = &instance.descriptor.specifier;
       debug!("{L3}visit instance '{}' ({actual_specifier:?})", instance.id);
       if instance.is_local {
@@ -35,7 +35,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
     debug!("{L2}it is a package developed locally in this monorepo");
     let local_specifier = dependency.get_local_specifier().unwrap();
     dependency.set_expected_specifier(&local_specifier);
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       let actual_specifier = &instance.descriptor.specifier;
       debug!("{L3}visit instance '{}' ({actual_specifier:?})", instance.id);
       if instance.is_local {
@@ -111,7 +111,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
     });
   } else if let Some(specifiers_by_eligible_update) = dependency.get_eligible_registry_updates(ctx) {
     debug!("{L2}eligible updates were found on the npm registry ({specifiers_by_eligible_update:?})");
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       let actual_specifier = &instance.descriptor.specifier;
       debug!("{L3}visit instance '{}' ({actual_specifier:?})", instance.id);
       specifiers_by_eligible_update.iter().for_each(|(update, effected_specifiers)| {
@@ -131,7 +131,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
   } else if let Some(highest_specifier) = dependency.get_highest_or_lowest_specifier() {
     debug!("{L2}a highest semver version was found ({highest_specifier:?})");
     dependency.set_expected_specifier(&highest_specifier);
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       let actual_specifier = &instance.descriptor.specifier;
       debug!("{L3}visit instance '{}' ({actual_specifier:?})", instance.id);
       debug!("{L4}its version number (without a range):");
@@ -191,7 +191,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
     debug!("{L2}no instances have a semver version");
     if dependency.every_specifier_is_already_identical() {
       debug!("{L3}but all are identical");
-      dependency.instances.borrow().iter().for_each(|instance| {
+      dependency.instances.iter().for_each(|instance| {
         let actual_specifier = &instance.descriptor.specifier;
         debug!("{L4}visit instance '{}' ({actual_specifier:?})", instance.id);
         debug!("{L5}it is identical to every other instance");
@@ -200,7 +200,7 @@ pub fn visit(dependency: &Dependency, ctx: &Context) {
       });
     } else {
       debug!("{L3}and they differ");
-      dependency.instances.borrow().iter().for_each(|instance| {
+      dependency.instances.iter().for_each(|instance| {
         let actual_specifier = &instance.descriptor.specifier;
         debug!("{L4}visit instance '{}' ({actual_specifier:?})", instance.id);
         debug!("{L5}it depends on a currently unknowable correct version from a set of unsupported version specifiers");

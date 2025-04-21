@@ -11,10 +11,10 @@ mod same_range_test;
 pub fn visit(dependency: &crate::dependency::Dependency) {
   debug!("visit same range version group");
   debug!("{L1}visit dependency '{}'", dependency.internal_name);
-  dependency.instances.borrow().iter().for_each(|instance| {
+  dependency.instances.iter().for_each(|instance| {
     let actual_specifier = &instance.descriptor.specifier;
     debug!("{L2}visit instance '{}' ({actual_specifier:?})", instance.id);
-    if instance.already_satisfies_all(&dependency.instances.borrow()) {
+    if instance.already_satisfies_all(&dependency.instances) {
       debug!("{L3}its specifier satisfies all other instances in the group");
       if instance.must_match_preferred_semver_range() {
         debug!("{L4}it belongs to a semver group");

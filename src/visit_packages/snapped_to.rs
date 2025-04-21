@@ -17,7 +17,7 @@ pub fn visit(dependency: &crate::dependency::Dependency, ctx: &Context) {
   if let Some(snapped_to_specifier) = dependency.get_snapped_to_specifier(&ctx.instances) {
     debug!("{L2}a target version was found ({snapped_to_specifier:?})");
     dependency.set_expected_specifier(&snapped_to_specifier);
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       let actual_specifier = &instance.descriptor.specifier;
       debug!("{L3}visit instance '{}' ({actual_specifier:?})", instance.id);
       if instance.is_local && !instance.already_equals(&snapped_to_specifier) {
@@ -81,7 +81,7 @@ pub fn visit(dependency: &crate::dependency::Dependency, ctx: &Context) {
     });
   } else {
     debug!("{L2}no target version was found");
-    dependency.instances.borrow().iter().for_each(|instance| {
+    dependency.instances.iter().for_each(|instance| {
       instance.mark_suspect(SuspectInstance::DependsOnMissingSnapTarget);
     });
   }

@@ -10,7 +10,7 @@ pub fn run(ctx: Context) -> ! {
 }
 
 fn check_formatting(ctx: Context) -> ! {
-  let ui = Ui { ctx: &ctx };
+  let ui = Ui::new(&ctx);
 
   ui.print_formatted_packages(&ctx.get_formatted_packages());
 
@@ -28,7 +28,7 @@ fn check_formatting(ctx: Context) -> ! {
 }
 
 fn fix_formatting(ctx: Context) -> ! {
-  let ui = Ui { ctx: &ctx };
+  let ui = Ui::new(&ctx);
 
   ctx.packages.all.iter().for_each(|package| {
     let package = package.borrow();

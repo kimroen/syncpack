@@ -149,9 +149,8 @@ fn create() -> Command {
         // @TODO: check before enabling .arg(dependency_types_option("fix"))
         // @TODO: check before enabling .arg(specifier_types_option("fix"))
         .arg(log_levels_option("fix"))
-        .arg(no_ansi_option("fix")),
-      // @TODO: check before enabling .arg(show_option_versions("fix"))
-      // @TODO: check before enabling .arg(sort_option("fix")),
+        .arg(no_ansi_option("fix"))
+        .arg(show_option_versions("fix")), // @TODO: check before enabling .arg(sort_option("fix")),
     )
     .subcommand(
       Command::new("format")

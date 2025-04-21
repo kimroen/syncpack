@@ -13,7 +13,7 @@ pub fn visit(dependency: &crate::dependency::Dependency) {
   debug!("{L1}visit dependency '{}'", dependency.internal_name);
   let pinned_specifier = dependency.pinned_specifier.clone().unwrap();
   dependency.set_expected_specifier(&pinned_specifier);
-  dependency.instances.borrow().iter().for_each(|instance| {
+  dependency.instances.iter().for_each(|instance| {
     let actual_specifier = &instance.descriptor.specifier;
     debug!("{L2}visit instance '{}' ({actual_specifier:?})", instance.id);
     if instance.is_local {
