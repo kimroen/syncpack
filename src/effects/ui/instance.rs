@@ -1,19 +1,15 @@
 use {
   crate::{
     context::Context,
-    dependency::Dependency,
     effects::ui,
     instance::Instance,
     instance_state::{
       FixableInstance, InstanceState, InvalidInstance, SemverGroupAndVersionConflict, SuspectInstance, UnfixableInstance, ValidInstance,
     },
-    package_json::{FormatMismatch, FormatMismatchVariant, PackageJson},
-    version_group::{VersionGroup, VersionGroupVariant},
+    version_group::VersionGroupVariant,
   },
   colored::*,
-  itertools::Itertools,
-  log::{error, info, warn},
-  std::{cell::RefCell, rc::Rc},
+  log::{error, info},
 };
 
 pub fn print(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) {

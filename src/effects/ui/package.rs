@@ -1,18 +1,12 @@
 use {
   crate::{
     context::Context,
-    dependency::Dependency,
     effects::ui,
-    instance::Instance,
-    instance_state::{
-      FixableInstance, InstanceState, InvalidInstance, SemverGroupAndVersionConflict, SuspectInstance, UnfixableInstance, ValidInstance,
-    },
     package_json::{FormatMismatch, FormatMismatchVariant, PackageJson},
-    version_group::{VersionGroup, VersionGroupVariant},
   },
   colored::*,
   itertools::Itertools,
-  log::{error, info, warn},
+  log::info,
   std::{cell::RefCell, rc::Rc},
 };
 

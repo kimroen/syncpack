@@ -1,19 +1,11 @@
 use {
   crate::{
     context::Context,
-    dependency::Dependency,
     effects::ui,
-    instance::Instance,
-    instance_state::{
-      FixableInstance, InstanceState, InvalidInstance, SemverGroupAndVersionConflict, SuspectInstance, UnfixableInstance, ValidInstance,
-    },
-    package_json::{FormatMismatch, FormatMismatchVariant, PackageJson},
-    version_group::{VersionGroup, VersionGroupVariant},
+    version_group::VersionGroup,
   },
   colored::*,
-  itertools::Itertools,
-  log::{error, info, warn},
-  std::{cell::RefCell, rc::Rc},
+  log::{info, warn},
 };
 
 pub fn print_header(ctx: &Context, group: &VersionGroup) {

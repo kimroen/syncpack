@@ -1,8 +1,8 @@
 use {
   crate::{
-    context::Context, 
+    context::Context,
     effects::ui::{self, icon, instance, util},
-    instance_state::InstanceState
+    instance_state::InstanceState,
   },
   colored::*,
   log::info,

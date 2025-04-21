@@ -1,5 +1,4 @@
-use crate::context::Context;
-use crate::effects::ui;
+use crate::{context::Context, effects::ui};
 
 /// Run the fix command side effects
 pub fn run(ctx: Context) -> ! {
