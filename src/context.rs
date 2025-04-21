@@ -102,6 +102,10 @@ impl Context {
     }
   }
 
+  pub fn get_version_groups(&self) -> impl Iterator<Item = &VersionGroup> {
+    self.version_groups.iter().filter(|group| group.matches_cli_filter)
+  }
+
   /// Get all packages with valid formatting
   pub fn get_formatted_packages(&self) -> Vec<Rc<RefCell<PackageJson>>> {
     self

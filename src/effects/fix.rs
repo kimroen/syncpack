@@ -21,13 +21,9 @@ pub fn run(ctx: Context) -> ! {
   };
 
   ctx
-    .version_groups
-    .iter()
-    .filter(|group| group.matches_cli_filter)
+    .get_version_groups()
+    .filter(|group| !group.dependencies.is_empty() && !group.has_ignored_variant())
     .for_each(|group| {
-      if group.dependencies.is_empty() || group.has_ignored_variant() {
-        return;
-      }
       let mut has_shown_group_header = false;
       group.get_sorted_dependencies(&ctx.config.cli.sort).for_each(|dependency| {
         let mut has_shown_dependency_header = false;
