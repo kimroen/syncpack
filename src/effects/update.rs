@@ -9,7 +9,7 @@ use {
 
 /// Run the update command side effects
 pub fn run(ctx: Context) -> ! {
-  let ui = Ui::new(&ctx);
+  let ui = Ui::new();
   let mut is_invalid = false;
 
   ctx
@@ -17,7 +17,7 @@ pub fn run(ctx: Context) -> ! {
     .iter()
     .filter(|group| group.matches_cli_filter && matches!(group.variant, VersionGroupVariant::HighestSemver))
     .for_each(|group| {
-      ui.group.print_header(group);
+      ui.group.print_header(&ctx, group);
       group.dependencies.values().for_each(|dependency| {
         let mut has_printed_header = false;
         dependency.instances.iter().for_each(|instance| {
@@ -26,9 +26,9 @@ pub fn run(ctx: Context) -> ! {
             is_invalid = true;
             if !has_printed_header {
               has_printed_header = true;
-              ui.dependency.print_valid(dependency, &group.variant);
+              ui.dependency.print_valid(&ctx, dependency, &group.variant);
             }
-            ui.instance.print_fixable(instance, &group.variant);
+            ui.instance.print_fixable(&ctx, instance, &group.variant);
             if !ctx.config.cli.check {
               instance.descriptor.package.borrow().copy_expected_specifier(instance);
             }

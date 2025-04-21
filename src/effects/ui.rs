@@ -17,72 +17,64 @@ use {
 
 /// Core UI structure that contains child UI modules for different functionality areas
 #[derive(Debug)]
-pub struct Ui<'a> {
-  pub ctx: &'a Context,
+pub struct Ui {
   indent: usize,
-  pub group: GroupUI<'a>,
-  pub dependency: DependencyUI<'a>,
-  pub instance: InstanceUI<'a>,
-  pub package: PackageUI<'a>,
-  pub icon: IconUI<'a>,
-  pub util: UtilUI<'a>,
+  pub group: GroupUI,
+  pub dependency: DependencyUI,
+  pub instance: InstanceUI,
+  pub package: PackageUI,
+  pub icon: IconUI,
+  pub util: UtilUI,
 }
 
 /// Group-related UI methods
 #[derive(Debug)]
-pub struct GroupUI<'a> {
-  ctx: &'a Context,
+pub struct GroupUI {
   indent: usize,
 }
 
 /// Dependency-related UI methods
 #[derive(Debug)]
-pub struct DependencyUI<'a> {
-  ctx: &'a Context,
+pub struct DependencyUI {
   indent: usize,
 }
 
 /// Instance-related UI methods
 #[derive(Debug)]
-pub struct InstanceUI<'a> {
-  ctx: &'a Context,
+pub struct InstanceUI {
   indent: usize,
 }
 
 /// Package-related UI methods
 #[derive(Debug)]
-pub struct PackageUI<'a> {
-  ctx: &'a Context,
+pub struct PackageUI {
   indent: usize,
 }
 
 /// Icon and styling UI methods
 #[derive(Debug)]
-pub struct IconUI<'a> {
-  ctx: &'a Context,
+pub struct IconUI {
   indent: usize,
 }
 
 /// Utility UI methods for links and path formatting
 #[derive(Debug)]
-pub struct UtilUI<'a> {
-  ctx: &'a Context,
+pub struct UtilUI {
   indent: usize,
 }
 
 // ===== Core UI Methods =====
-impl<'a> Ui<'a> {
-  pub fn new(ctx: &'a Context) -> Self {
+impl Ui {
+  pub fn new() -> Self {
     let indent = 4;
     Self {
-      ctx,
       indent,
-      group: GroupUI { ctx, indent },
-      dependency: DependencyUI { ctx, indent },
-      instance: InstanceUI { ctx, indent },
-      package: PackageUI { ctx, indent },
-      icon: IconUI { ctx, indent },
-      util: UtilUI { ctx, indent },
+      group: GroupUI { indent },
+      dependency: DependencyUI { indent },
+      instance: InstanceUI { indent },
+      package: PackageUI { indent },
+      icon: IconUI { indent },
+      util: UtilUI { indent },
     }
   }
 
@@ -92,8 +84,8 @@ impl<'a> Ui<'a> {
 }
 
 // ===== Group-related Methods =====
-impl GroupUI<'_> {
-  pub fn print_header(&self, group: &VersionGroup) {
+impl GroupUI {
+  pub fn print_header(&self, ctx: &Context, group: &VersionGroup) {
     let print_width = 80;
     let label = &group.selector.label;
     let header = format!("= {label} ");
@@ -127,7 +119,7 @@ impl GroupUI<'_> {
     let line = format!("{instances_count} {instance_plurality} ignored inside {dependencies_count} {dep_plurality}").dimmed();
     info!("{line}");
   }
-
+  
   /// Return a right-aligned column of a count of instances
   /// Example "    38x"
   fn count_column(&self, count: usize) -> String {
@@ -147,17 +139,17 @@ impl GroupUI<'_> {
 }
 
 // ===== Dependency-related Methods =====
-impl DependencyUI<'_> {
-  pub fn print(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
+impl DependencyUI {
+  pub fn print(&self, ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
     let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name;
-    let local_hint = self.get_local_hint(dependency);
+    let local_hint = self.get_local_hint(ctx, dependency);
 
     match &dependency.get_state() {
       InstanceState::Valid(variant) => match variant {
         ValidInstance::IsIgnored => {
-          self.print_ignored(dependency, group_variant);
+          self.print_ignored(ctx, dependency, group_variant);
         }
         ValidInstance::IsHighestOrLowestSemver
         | ValidInstance::IsIdenticalToLocal
@@ -168,7 +160,7 @@ impl DependencyUI<'_> {
         | ValidInstance::SatisfiesHighestOrLowestSemver
         | ValidInstance::SatisfiesLocal
         | ValidInstance::SatisfiesSnapTarget => {
-          self.print_valid(dependency, group_variant);
+          self.print_valid(ctx, dependency, group_variant);
         }
         ValidInstance::SatisfiesSameRangeGroup => {
           let line = self.join_line(vec![&count, name, &local_hint]);
@@ -192,20 +184,20 @@ impl DependencyUI<'_> {
     }
   }
 
-  pub fn print_ignored(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
+  pub fn print_ignored(&self, ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
     let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name.dimmed().to_string();
-    let local_hint = self.get_local_hint(dependency);
+    let local_hint = self.get_local_hint(ctx, dependency);
     let line = self.join_line(vec![&count, &name]);
     info!("{line}");
   }
 
-  pub fn print_valid(&self, dependency: &Dependency, group_variant: &VersionGroupVariant) {
+  pub fn print_valid(&self, ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
     let instances_len = dependency.instances.len();
     let count = self.count_column(instances_len);
     let name = &dependency.internal_name;
-    let local_hint = self.get_local_hint(dependency);
+    let local_hint = self.get_local_hint(ctx, dependency);
     let expected = self.get_raw_expected_specifier(dependency);
     let expected = expected.dimmed().to_string();
     let line = self.join_line(vec![&count, name, &expected, &local_hint]);
@@ -220,8 +212,8 @@ impl DependencyUI<'_> {
     }
   }
 
-  fn get_local_hint(&self, dependency: &Dependency) -> String {
-    if self.ctx.config.cli.show_hints && dependency.local_instance.borrow().is_some() {
+  fn get_local_hint(&self, ctx: &Context, dependency: &Dependency) -> String {
+    if ctx.config.cli.show_hints && dependency.local_instance.borrow().is_some() {
       "[local]".blue().to_string()
     } else {
       "".to_string()
@@ -236,11 +228,11 @@ impl DependencyUI<'_> {
       .map(|expected| expected.get_raw())
       .unwrap_or_default()
   }
-
+  
   fn join_line(&self, lines: Vec<&String>) -> String {
     lines.into_iter().filter(|line| !line.is_empty()).join(" ")
   }
-
+  
   /// Return a right-aligned column of a count of instances
   /// Example "    38x"
   fn count_column(&self, count: usize) -> String {
@@ -260,8 +252,8 @@ impl DependencyUI<'_> {
 }
 
 // ===== Instance-related Methods =====
-impl InstanceUI<'_> {
-  pub fn print(&self, instance: &Instance, group_variant: &VersionGroupVariant) {
+impl InstanceUI {
+  pub fn print(&self, ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) {
     let state = instance.state.borrow().clone();
     let indent = " ".repeat(self.indent);
     match &state {
@@ -269,8 +261,8 @@ impl InstanceUI<'_> {
         ValidInstance::IsIgnored => {
           let no_icon = " ";
           let actual = self.get_actual(instance).dimmed();
-          let location = self.get_location(instance).dimmed();
-          let state_link = self.get_state_link_in_parens(instance, group_variant);
+          let location = self.get_location(ctx, instance).dimmed();
+          let state_link = self.get_state_link_in_parens(ctx, instance, group_variant);
           info!("{indent}{no_icon} {actual} {location} {state_link}");
         }
         ValidInstance::IsHighestOrLowestSemver
@@ -285,8 +277,8 @@ impl InstanceUI<'_> {
         | ValidInstance::SatisfiesSnapTarget => {
           let no_icon = " ";
           let actual = self.get_actual(instance).dimmed();
-          let location = self.get_location(instance).dimmed();
-          let state_link = self.get_state_link_in_parens(instance, group_variant);
+          let location = self.get_location(ctx, instance).dimmed();
+          let state_link = self.get_state_link_in_parens(ctx, instance, group_variant);
           info!("{indent}{no_icon} {actual} {location} {state_link}");
         }
       },
@@ -302,8 +294,8 @@ impl InstanceUI<'_> {
         | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithSnapTarget) => {
           let icon = self.err_icon();
           let actual = self.get_actual(instance).red();
-          let location = self.get_location(instance).dimmed();
-          let state_link = self.get_state_link_in_parens(instance, group_variant);
+          let location = self.get_location(ctx, instance).dimmed();
+          let state_link = self.get_state_link_in_parens(ctx, instance, group_variant);
           info!("{indent}{icon} {actual} {location} {state_link}");
         }
         InvalidInstance::Fixable(FixableInstance::DiffersToHighestOrLowestSemver)
@@ -315,7 +307,7 @@ impl InstanceUI<'_> {
         | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRange)
         | InvalidInstance::Fixable(FixableInstance::PinOverridesSemverRangeMismatch)
         | InvalidInstance::Fixable(FixableInstance::SemverRangeMismatch) => {
-          self.print_fixable(instance, group_variant);
+          self.print_fixable(ctx, instance, group_variant);
         }
       },
       InstanceState::Suspect(variant) => match variant {
@@ -326,25 +318,25 @@ impl InstanceUI<'_> {
         | SuspectInstance::RefuseToSnapLocal => {
           let icon = self.warn_icon();
           let actual = self.get_actual(instance).yellow();
-          let location = self.get_location(instance).dimmed();
-          let state_link = self.get_state_link_in_parens(instance, group_variant);
+          let location = self.get_location(ctx, instance).dimmed();
+          let state_link = self.get_state_link_in_parens(ctx, instance, group_variant);
           info!("{indent}{icon} {actual} {location} {state_link}");
         }
       },
       InstanceState::Unknown => {
-        let location = self.get_location(instance);
+        let location = self.get_location(ctx, instance);
         error!("Instance '{location}' has an unknown state, this is a bug in syncpack");
         panic!("Unknown Instance State");
       }
     }
   }
 
-  pub fn print_fixable(&self, instance: &Instance, group_variant: &VersionGroupVariant) {
+  pub fn print_fixable(&self, ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) {
     let indent = " ".repeat(self.indent);
     let icon = self.err_icon();
     let suggested_fix = self.get_suggested_fix(instance);
-    let location = self.get_location(instance).dimmed();
-    let state_link = self.get_state_link_in_parens(instance, group_variant);
+    let location = self.get_location(ctx, instance).dimmed();
+    let state_link = self.get_state_link_in_parens(ctx, instance, group_variant);
     info!("{indent}{icon} {suggested_fix} {location} {state_link}");
   }
 
@@ -369,9 +361,9 @@ impl InstanceUI<'_> {
   }
 
   /// Return a location hint for an instance
-  pub fn get_location(&self, instance: &Instance) -> ColoredString {
+  pub fn get_location(&self, ctx: &Context, instance: &Instance) -> ColoredString {
     let path_to_prop = instance.descriptor.dependency_type.path.replace("/", ".");
-    let file_link = self.package_json_link(&instance.descriptor.package.borrow());
+    let file_link = self.package_json_link(ctx, &instance.descriptor.package.borrow());
     format!("in {file_link} at {path_to_prop}").normal()
   }
 
@@ -392,96 +384,96 @@ impl InstanceUI<'_> {
   }
 
   /// If enabled, render the reason code as a clickable link
-  pub fn get_state_link(&self, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
-    if self.ctx.config.cli.show_status_codes {
+  pub fn get_state_link(&self, ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
+    if ctx.config.cli.show_status_codes {
       let state_name = self.get_state_name(instance, group_variant);
-      self.status_code_link(&state_name)
+      self.status_code_link(ctx, &state_name)
     } else {
       "".to_string()
     }
   }
 
-  pub fn get_state_link_in_parens(&self, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
-    let state_link = self.get_state_link(instance, group_variant);
+  pub fn get_state_link_in_parens(&self, ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
+    let state_link = self.get_state_link(ctx, instance, group_variant);
     if !state_link.is_empty() {
       format!("({state_link})").dimmed().to_string()
     } else {
       state_link
     }
   }
-
+  
   /// Render a clickable link to a package.json file
-  fn package_json_link(&self, package: &PackageJson) -> String {
+  fn package_json_link(&self, ctx: &Context, package: &PackageJson) -> String {
     let file_path = package.file_path.to_str().unwrap();
-    self.link(format!("file:{file_path}"), package.name.clone())
+    self.link(ctx, format!("file:{file_path}"), package.name.clone())
   }
-
+  
   /// Render the reason code as a clickable link
-  fn status_code_link(&self, pascal_case: &str) -> String {
+  fn status_code_link(&self, ctx: &Context, pascal_case: &str) -> String {
     let base_url = "https://jamiemason.github.io/syncpack/guide/status-codes/";
     let lower_case = pascal_case.to_lowercase();
-    self.link(format!("{base_url}#{lower_case}"), pascal_case)
+    self.link(ctx, format!("{base_url}#{lower_case}"), pascal_case)
   }
 
   /// Render a clickable link
-  fn link(&self, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
-    if self.ctx.config.cli.disable_ansi {
+  fn link(&self, ctx: &Context, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
+    if ctx.config.cli.disable_ansi {
       text.into().to_string()
     } else {
       format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", url.into(), text.into())
     }
   }
-
+  
   fn err_icon(&self) -> ColoredString {
-    "u2718".red()
+    "\u{2718}".red()
   }
-
+  
   fn warn_icon(&self) -> ColoredString {
     "!".yellow()
   }
-
+  
   fn dim_right_arrow(&self) -> ColoredString {
-    "u2192".dimmed()
+    "\u{2192}".dimmed()
   }
 }
 
 // ===== Package-related Methods =====
-impl PackageUI<'_> {
+impl PackageUI {
   /// Packages which are correctly formatted
-  pub fn print_formatted(&self, packages: &[Rc<RefCell<PackageJson>>]) {
+  pub fn print_formatted(&self, ctx: &Context, packages: &[Rc<RefCell<PackageJson>>]) {
     if !packages.is_empty() {
       let icon = self.ok_icon();
       let count = self.count_column(packages.len());
       let status = "Valid".green();
       info!("{count} {icon} {status}");
-      if self.ctx.config.cli.show_packages {
+      if ctx.config.cli.show_packages {
         packages
           .iter()
           .sorted_by_key(|package| package.borrow().name.clone())
           .for_each(|package| {
-            self.print_formatted_package(&package.borrow());
+            self.print_formatted_package(ctx, &package.borrow());
           });
       }
     }
   }
 
   /// Print a package.json which is correctly formatted
-  fn print_formatted_package(&self, package: &PackageJson) {
+  fn print_formatted_package(&self, ctx: &Context, package: &PackageJson) {
     if package.formatting_mismatches.borrow().is_empty() {
       let icon = "-".dimmed();
-      let file_link = self.package_json_link(package).dimmed();
+      let file_link = self.package_json_link(ctx, package).dimmed();
       info!("          {icon} {file_link}");
     }
   }
 
   /// Print every package.json which has the given formatting mismatch
-  pub fn print_formatting_mismatches(&self, variant: &FormatMismatchVariant, mismatches: &[Rc<FormatMismatch>]) {
+  pub fn print_formatting_mismatches(&self, ctx: &Context, variant: &FormatMismatchVariant, mismatches: &[Rc<FormatMismatch>]) {
     let count = self.count_column(mismatches.len());
     let icon = self.err_icon();
     let status_code = format!("{:?}", variant);
-    let link = self.status_code_link(&status_code).red();
+    let link = self.status_code_link(ctx, &status_code).red();
     info!("{count} {icon} {link}");
-    if self.ctx.config.cli.show_packages {
+    if ctx.config.cli.show_packages {
       mismatches
         .iter()
         .sorted_by_key(|mismatch| mismatch.package.borrow().name.clone())
@@ -489,7 +481,7 @@ impl PackageUI<'_> {
           let icon = "-".dimmed();
           let package = mismatch.package.borrow();
           let property_path = self.format_path(&mismatch.property_path);
-          let file_link = self.package_json_link(&package);
+          let file_link = self.package_json_link(ctx, &package);
           let msg = format!("          {icon} {property_path} of {file_link}").red();
           info!("{msg}");
         });
@@ -497,20 +489,20 @@ impl PackageUI<'_> {
   }
 
   /// Render a clickable link to a package.json file
-  fn package_json_link(&self, package: &PackageJson) -> String {
+  fn package_json_link(&self, ctx: &Context, package: &PackageJson) -> String {
     let file_path = package.file_path.to_str().unwrap();
-    self.link(format!("file:{file_path}"), package.name.clone())
+    self.link(ctx, format!("file:{file_path}"), package.name.clone())
   }
-
+  
   /// Render a clickable link
-  fn link(&self, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
-    if self.ctx.config.cli.disable_ansi {
+  fn link(&self, ctx: &Context, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
+    if ctx.config.cli.disable_ansi {
       text.into().to_string()
     } else {
       format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", url.into(), text.into())
     }
   }
-
+  
   /// Convert eg. "/dependencies/react" to ".dependencies.react"
   fn format_path(&self, path: &str) -> String {
     if path == "/" {
@@ -519,7 +511,7 @@ impl PackageUI<'_> {
       path.replace("/", ".")
     }
   }
-
+  
   /// Return a right-aligned column of a count of instances
   /// Example "    38x"
   fn count_column(&self, count: usize) -> String {
@@ -536,31 +528,31 @@ impl PackageUI<'_> {
     .dimmed()
     .to_string()
   }
-
+  
   fn ok_icon(&self) -> ColoredString {
-    "u2713".green()
+    "\u{2713}".green()
   }
 
   fn err_icon(&self) -> ColoredString {
-    "u2718".red()
+    "\u{2718}".red()
   }
-
+  
   /// Render the reason code as a clickable link
-  fn status_code_link(&self, pascal_case: &str) -> String {
+  fn status_code_link(&self, ctx: &Context, pascal_case: &str) -> String {
     let base_url = "https://jamiemason.github.io/syncpack/guide/status-codes/";
     let lower_case = pascal_case.to_lowercase();
-    self.link(format!("{base_url}#{lower_case}"), pascal_case)
+    self.link(ctx, format!("{base_url}#{lower_case}"), pascal_case)
   }
 }
 
 // ===== Icon and Styling Methods =====
-impl IconUI<'_> {
+impl IconUI {
   pub fn ok(&self) -> ColoredString {
-    "u2713".green()
+    "\u{2713}".green()
   }
 
   pub fn err(&self) -> ColoredString {
-    "u2718".red()
+    "\u{2718}".red()
   }
 
   pub fn warn(&self) -> ColoredString {
@@ -572,7 +564,7 @@ impl IconUI<'_> {
   }
 
   pub fn dim_right_arrow(&self) -> ColoredString {
-    "u2192".dimmed()
+    "\u{2192}".dimmed()
   }
 
   /// Return a right-aligned column of a count of instances
@@ -594,17 +586,17 @@ impl IconUI<'_> {
 }
 
 // ===== Utility Methods for Links and Paths =====
-impl UtilUI<'_> {
+impl UtilUI {
   /// Render the reason code as a clickable link
-  pub fn status_code_link(&self, pascal_case: &str) -> String {
+  pub fn status_code_link(&self, ctx: &Context, pascal_case: &str) -> String {
     let base_url = "https://jamiemason.github.io/syncpack/guide/status-codes/";
     let lower_case = pascal_case.to_lowercase();
-    self.link(format!("{base_url}#{lower_case}"), pascal_case)
+    self.link(ctx, format!("{base_url}#{lower_case}"), pascal_case)
   }
 
   /// Render a clickable link
-  pub fn link(&self, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
-    if self.ctx.config.cli.disable_ansi {
+  pub fn link(&self, ctx: &Context, url: impl Into<String>, text: impl Into<ColoredString>) -> String {
+    if ctx.config.cli.disable_ansi {
       text.into().to_string()
     } else {
       format!("\u{1b}]8;;{}\u{1b}\\{}\u{1b}]8;;\u{1b}\\", url.into(), text.into())
@@ -619,7 +611,7 @@ impl UtilUI<'_> {
       path.replace("/", ".")
     }
   }
-
+  
   pub fn join_line(&self, lines: Vec<&String>) -> String {
     lines.into_iter().filter(|line| !line.is_empty()).join(" ")
   }

@@ -7,7 +7,7 @@ use {
 
 /// Run the fix command side effects
 pub fn run(ctx: Context) -> ! {
-  let ui = Ui::new(&ctx);
+  let ui = Ui::new();
   let mut is_invalid = false;
 
   let get_instance_state_icon = |state: &InstanceState| -> String {
@@ -31,7 +31,7 @@ pub fn run(ctx: Context) -> ! {
           let cannot_autofix = instance.is_unfixable() || instance.is_suspect() && ctx.config.rcfile.strict;
           if instance.is_fixable() || cannot_autofix {
             if !has_shown_group_header {
-              ui.group.print_header(group);
+              ui.group.print_header(&ctx, group);
               has_shown_group_header = true;
             }
             if !has_shown_dependency_header {
@@ -45,14 +45,14 @@ pub fn run(ctx: Context) -> ! {
             if instance.is_fixable() {
               if instance.is_banned() {
                 let name = &instance.descriptor.name;
-                let location = ui.instance.get_location(instance).dimmed();
-                let state_link = ui.instance.get_state_link_in_parens(instance, &group.variant);
+                let location = ui.instance.get_location(&ctx, instance).dimmed();
+                let state_link = ui.instance.get_state_link_in_parens(&ctx, instance, &group.variant);
                 info!("  {location} {state_link}");
                 instance.remove()
               } else {
                 let name = &instance.descriptor.name;
                 let expected = ui.instance.get_expected(instance).dimmed();
-                let location = ui.instance.get_location(instance).dimmed();
+                let location = ui.instance.get_location(&ctx, instance).dimmed();
                 info!("  {expected} {location}");
                 instance.descriptor.package.borrow().copy_expected_specifier(instance);
               }
@@ -60,8 +60,8 @@ pub fn run(ctx: Context) -> ! {
               is_invalid = true;
               let name = &instance.descriptor.name;
               let actual = ui.instance.get_actual(instance);
-              let location = ui.instance.get_location(instance).dimmed();
-              let state_link = ui.instance.get_state_link_in_parens(instance, &group.variant);
+              let location = ui.instance.get_location(&ctx, instance).dimmed();
+              let state_link = ui.instance.get_state_link_in_parens(&ctx, instance, &group.variant);
               info!("  {actual} {location} {state_link}");
             }
           }
