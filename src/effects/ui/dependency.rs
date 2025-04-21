@@ -1,8 +1,24 @@
-use super::*;
+use {
+  crate::{
+    context::Context,
+    dependency::Dependency,
+    effects::ui,
+    instance::Instance,
+    instance_state::{
+      FixableInstance, InstanceState, InvalidInstance, SemverGroupAndVersionConflict, SuspectInstance, UnfixableInstance, ValidInstance,
+    },
+    package_json::{FormatMismatch, FormatMismatchVariant, PackageJson},
+    version_group::{VersionGroup, VersionGroupVariant},
+  },
+  colored::*,
+  itertools::Itertools,
+  log::{error, info, warn},
+  std::{cell::RefCell, rc::Rc},
+};
 
 pub fn print(ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
   let instances_len = dependency.instances.len();
-  let count = util::count_column(instances_len);
+  let count = ui::util::count_column(instances_len);
   let name = &dependency.internal_name;
   let local_hint = get_local_hint(ctx, dependency);
 
@@ -23,18 +39,18 @@ pub fn print(ctx: &Context, dependency: &Dependency, group_variant: &VersionGrou
         print_valid(ctx, dependency, group_variant);
       }
       ValidInstance::SatisfiesSameRangeGroup => {
-        let line = super::join_line(vec![&count, name, &local_hint]);
+        let line = ui::util::join_line(vec![&count, name, &local_hint]);
         info!("{line}");
       }
     },
     InstanceState::Invalid(variant) => {
       let name = name.red().to_string();
-      let line = super::join_line(vec![&count, &name, &local_hint]);
+      let line = ui::util::join_line(vec![&count, &name, &local_hint]);
       info!("{line}");
     }
     InstanceState::Suspect(variant) => {
       let name = name.yellow().to_string();
-      let line = super::join_line(vec![&count, &name, &local_hint]);
+      let line = ui::util::join_line(vec![&count, &name, &local_hint]);
       info!("{line}");
     }
     InstanceState::Unknown => {
@@ -46,21 +62,21 @@ pub fn print(ctx: &Context, dependency: &Dependency, group_variant: &VersionGrou
 
 pub fn print_ignored(ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
   let instances_len = dependency.instances.len();
-  let count = util::count_column(instances_len);
+  let count = ui::util::count_column(instances_len);
   let name = &dependency.internal_name.dimmed().to_string();
   let local_hint = get_local_hint(ctx, dependency);
-  let line = super::join_line(vec![&count, &name]);
+  let line = ui::util::join_line(vec![&count, &name]);
   info!("{line}");
 }
 
 pub fn print_valid(ctx: &Context, dependency: &Dependency, group_variant: &VersionGroupVariant) {
   let instances_len = dependency.instances.len();
-  let count = util::count_column(instances_len);
+  let count = ui::util::count_column(instances_len);
   let name = &dependency.internal_name;
   let local_hint = get_local_hint(ctx, dependency);
   let expected = get_raw_expected_specifier(dependency);
   let expected = expected.dimmed().to_string();
-  let line = super::join_line(vec![&count, name, &expected, &local_hint]);
+  let line = ui::util::join_line(vec![&count, name, &expected, &local_hint]);
   info!("{line}");
 }
 

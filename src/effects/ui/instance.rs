@@ -1,8 +1,24 @@
-use super::*;
+use {
+  crate::{
+    context::Context,
+    dependency::Dependency,
+    effects::ui,
+    instance::Instance,
+    instance_state::{
+      FixableInstance, InstanceState, InvalidInstance, SemverGroupAndVersionConflict, SuspectInstance, UnfixableInstance, ValidInstance,
+    },
+    package_json::{FormatMismatch, FormatMismatchVariant, PackageJson},
+    version_group::{VersionGroup, VersionGroupVariant},
+  },
+  colored::*,
+  itertools::Itertools,
+  log::{error, info, warn},
+  std::{cell::RefCell, rc::Rc},
+};
 
 pub fn print(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) {
   let state = instance.state.borrow().clone();
-  let indent = " ".repeat(DEFAULT_INDENT);
+  let indent = " ".repeat(ui::DEFAULT_INDENT);
   match &state {
     InstanceState::Valid(variant) => match variant {
       ValidInstance::IsIgnored => {
@@ -39,7 +55,7 @@ pub fn print(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVar
       | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithHighestOrLowestSemver)
       | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithLocal)
       | InvalidInstance::Conflict(SemverGroupAndVersionConflict::MismatchConflictsWithSnapTarget) => {
-        let icon = icon::err();
+        let icon = ui::icon::err();
         let actual = get_actual(instance).red();
         let location = get_location(ctx, instance).dimmed();
         let state_link = get_state_link_in_parens(ctx, instance, group_variant);
@@ -63,7 +79,7 @@ pub fn print(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVar
       | SuspectInstance::RefuseToBanLocal
       | SuspectInstance::RefuseToPinLocal
       | SuspectInstance::RefuseToSnapLocal => {
-        let icon = icon::warn();
+        let icon = ui::icon::warn();
         let actual = get_actual(instance).yellow();
         let location = get_location(ctx, instance).dimmed();
         let state_link = get_state_link_in_parens(ctx, instance, group_variant);
@@ -79,8 +95,8 @@ pub fn print(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVar
 }
 
 pub fn print_fixable(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) {
-  let indent = " ".repeat(DEFAULT_INDENT);
-  let icon = icon::err();
+  let indent = " ".repeat(ui::DEFAULT_INDENT);
+  let icon = ui::icon::err();
   let suggested_fix = get_suggested_fix(instance);
   let location = get_location(ctx, instance).dimmed();
   let state_link = get_state_link_in_parens(ctx, instance, group_variant);
@@ -102,7 +118,7 @@ pub fn get_expected(instance: &Instance) -> String {
 
 pub fn get_suggested_fix(instance: &Instance) -> String {
   let actual = get_actual(instance).red();
-  let arrow = icon::dim_right_arrow();
+  let arrow = ui::icon::dim_right_arrow();
   let expected = get_expected(instance).green();
   format!("{actual} {arrow} {expected}")
 }
@@ -110,7 +126,7 @@ pub fn get_suggested_fix(instance: &Instance) -> String {
 /// Return a location hint for an instance
 pub fn get_location(ctx: &Context, instance: &Instance) -> ColoredString {
   let path_to_prop = instance.descriptor.dependency_type.path.replace("/", ".");
-  let file_link = package::package_json_link(ctx, &instance.descriptor.package.borrow());
+  let file_link = ui::package::package_json_link(ctx, &instance.descriptor.package.borrow());
   format!("in {file_link} at {path_to_prop}").normal()
 }
 
@@ -134,7 +150,7 @@ fn get_state_name(instance: &Instance, group_variant: &VersionGroupVariant) -> S
 pub fn get_state_link(ctx: &Context, instance: &Instance, group_variant: &VersionGroupVariant) -> String {
   if ctx.config.cli.show_status_codes {
     let state_name = get_state_name(instance, group_variant);
-    util::status_code_link(ctx, &state_name)
+    ui::util::status_code_link(ctx, &state_name)
   } else {
     "".to_string()
   }
