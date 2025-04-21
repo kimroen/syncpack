@@ -12,10 +12,10 @@ pub fn run(ctx: Context) -> ! {
 fn check_formatting(ctx: Context) -> ! {
   let ui = Ui::new(&ctx);
 
-  ui.print_formatted_packages(&ctx.get_formatted_packages());
+  ui.package.print_formatted(&ctx.get_formatted_packages());
 
   ctx.get_formatting_mismatches_by_variant().iter().for_each(|(variant, mismatches)| {
-    ui.print_formatting_mismatches(variant, mismatches);
+    ui.package.print_formatting_mismatches(variant, mismatches);
   });
 
   for package in ctx.packages.all.iter() {
@@ -43,7 +43,7 @@ fn fix_formatting(ctx: Context) -> ! {
     *formatting_mismatches = vec![];
   });
 
-  ui.print_formatted_packages(&ctx.packages.all);
+  ui.package.print_formatted(&ctx.packages.all);
 
   if !ctx.config.cli.dry_run {
     ctx.packages.all.iter().for_each(|package| {

@@ -6,20 +6,20 @@ pub fn run(ctx: Context) -> ! {
   let mut is_invalid = false;
 
   ctx.get_version_groups().for_each(|group| {
-    ui.print_group_header(group);
+    ui.group.print_header(group);
     if group.dependencies.is_empty() {
-      ui.print_empty_group();
+      ui.group.print_empty();
       return;
     }
     if !ctx.config.cli.show_ignored && group.has_ignored_variant() {
-      ui.print_ignored_group(group);
+      ui.group.print_ignored(group);
       return;
     }
     group.get_sorted_dependencies(&ctx.config.cli.sort).for_each(|dependency| {
-      ui.print_dependency(dependency, &group.variant);
+      ui.dependency.print(dependency, &group.variant);
       dependency.get_sorted_instances().for_each(|instance| {
         if !instance.is_valid() || ctx.config.cli.show_instances {
-          ui.print_instance(instance, &group.variant);
+          ui.instance.print(instance, &group.variant);
         }
         if instance.is_invalid() || (instance.is_suspect() && ctx.config.rcfile.strict) {
           is_invalid = true;
